@@ -314,8 +314,13 @@ const dialog_send_request = (dialog_id, params, template) => {
 
     req.headers = deepmerge(req.headers, headers)
 
-    if(req.method == 'ACK' || req.method == 'CANCEL') {
+    if(req.method == 'CANCEL') {
+        if(dialog.direction == 'incoming') {
+            throw(`Cannot send CANCEL to an incoming call`)
+        }
         req.uri = dialog.offer.uri
+    } else if(req.method == 'ACK') {
+        req.uri = dialog.contact.uri
     } else {
         dialog.seq++
         req.uri = dialog.contact.uri

@@ -79,6 +79,7 @@ async function test() {
         headers: {
             from: {uri: `sip:ada@${domain}`},
             to: {uri: `sip:bob@${address}:${bob_port}`},
+            'content-type': 'application/sdp',
         },
         content: sdp_offer
     })
@@ -103,6 +104,7 @@ async function test() {
 
     dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
         headers: {
+            'content-type': 'application/sdp',
         },
         content: sdp_answer,
     })
@@ -149,6 +151,9 @@ async function test() {
 
     dialog.send_request(ada_call_id, {
         method: 'INVITE',
+        headers: {
+            'content-type': 'application/sdp',
+        },
         content: sdp_offer
     })
 
@@ -163,6 +168,9 @@ async function test() {
     ], 1000)
  
     dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
+        headers: {
+            'content-type': 'application/sdp',
+        },
         content: sdp_answer,
     })
 
@@ -208,7 +216,10 @@ async function test() {
 
     dialog.send_request(bob_call_id, {
         method: 'INVITE',
-        content: sdp_offer
+        headers: {
+            'content-type': 'application/sdp',
+        },
+        content: sdp_offer,
     })
 
     await z.wait([
@@ -222,6 +233,9 @@ async function test() {
     ], 1000)
  
     dialog.send_reply(ada_call_id, z.store.req, 200, 'OK', {
+        headers: {
+            'content-type': 'application/sdp',
+        },
         content: sdp_answer,
     })
 
@@ -259,14 +273,112 @@ async function test() {
     ], 1000)
 
 
+    // now send INFO from ada's side
+
+    // clear stored req and res as we will need to collect them again
+    z.store.req = null
+    z.store.res = null
+
+    dialog.send_request(ada_call_id, {
+        method: 'INFO',
+        headers: {
+            Subject: 'Money Transfer By Wire',
+            'Content-Type': 'application/mgcp',
+        },
+        content: "NTFY 123456 a.g.bell@bell-tel.com MGCP  1.0\r\nO: D/8, D/7, D/2, D/6, D/#, D/L",
+    })
+
+    await z.wait([
+        {
+            source: 'sip_endpoint',
+            endpoint_id: bob,
+            req: m.collect('req'),
+            msg: sip_msg({
+                $rm: 'INFO',
+                $rb: "NTFY 123456 a.g.bell@bell-tel.com MGCP  1.0\r\nO: D/8, D/7, D/2, D/6, D/#, D/L",
+            }),
+            event: 'in_dialog_request',
+            dialog_id: bob_call_id,
+        },
+    ], 1000)
+ 
+    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK')
+
+    await z.wait([
+        {   
+            source: 'sip_endpoint',
+            endpoint_id: ada,
+            event: 'response',
+            res: m.collect('res'),
+            msg: sip_msg({
+                $rm: 'INFO',
+                $rs: '200',
+                $rr: 'OK',
+            }),
+            dialog_id: ada_call_id,
+        },
+    ], 1000)
+
+
+    // now send INFO from bob's side
+
+    // clear stored req and res as we will need to collect them again
+    z.store.req = null
+    z.store.res = null
+
+
+    dialog.send_request(bob_call_id, {
+        method: 'INFO',
+        headers: {
+            Subject: 'Your wheater report is ready',
+            'Content-Type': 'text/plain',
+        },
+        content: "Cloudy, with a chance of rain",
+    })
+
+    await z.wait([
+        {
+            source: 'sip_endpoint',
+            endpoint_id: ada,
+            req: m.collect('req'),
+            msg: sip_msg({
+                $rm: 'INFO',
+                $rb: "Cloudy, with a chance of rain",
+            }),
+            event: 'in_dialog_request',
+            dialog_id: ada_call_id,
+        },
+    ], 1000)
+
+    dialog.send_reply(ada_call_id, z.store.req, 200, 'OK')
+
+    await z.wait([
+        {   
+            source: 'sip_endpoint',
+            endpoint_id: bob,
+            event: 'response',
+            res: m.collect('res'),
+            msg: sip_msg({
+                $rm: 'INFO',
+                $rs: '200',
+                $rr: 'OK',
+            }),
+            dialog_id: bob_call_id,
+        },
+    ], 1000)
+
+
+
     // Now disconnect from ada's side
+
+    // clear stored req and res as we will need to collect them again
+    z.store.req = null
+    z.store.res = null
+
 
     dialog.send_request(ada_call_id, {
         method: 'BYE',
     })
-
-    z.store.req = null
-    z.store.res = null
 
     await z.wait([
         {
