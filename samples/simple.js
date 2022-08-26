@@ -1,3 +1,5 @@
+/* this test creates two sip endpoints, makes a call between them, reinvites from both sides, sends INFO from both sides and terminates the call */
+
 const sipjs = require('../index.js')
 const {endpoint, dialog} = require('../index.js')
 
@@ -5,8 +7,6 @@ const Zester = require('zester')
 const m = require('data-matching')
 const util = require('util')
 const sip_msg = require('sip-matching')
-
-function rstring() { return Math.floor(Math.random()*1e6).toString() }
 
 const z = new Zester()
 
@@ -65,7 +65,6 @@ var logger = {
     error: function(e) { util.debug(e.stack); }
 }
 
-
 async function test() {
     const domain = 'test1.com'
     const address = '127.0.0.1'
@@ -115,7 +114,66 @@ async function test() {
             event: 'response',
             res: m.collect('res'),
             msg: sip_msg({
-                // $rm: 'INVITE', // not working. See https://github.com/MayamaTakeshi/sip-parsing/issues/8
+                $rm: 'INVITE',
+                $rs: '200',
+                $rr: 'OK',
+                $fU: 'ada',
+                $fd: domain,
+            }),
+            dialog_id: ada_call_id,
+        },
+    ], 1000)
+
+    dialog.send_request(ada_call_id, {
+        method: 'ACK',
+    })
+    
+    await z.wait([
+        {
+            source: 'sip_endpoint',                                                                          
+            endpoint_id: bob,                                                                                  
+            event: 'in_dialog_request',
+            dialog_id: bob_call_id,
+            msg: sip_msg({
+                $rm: 'ACK',
+            })
+        },
+    ], 1000)
+
+
+    // now do a RE-INVITE from ada's side
+
+    // clear stored req and res as we will need to collect them again
+    z.store.req = null
+    z.store.res = null
+
+    dialog.send_request(ada_call_id, {
+        method: 'INVITE',
+        content: sdp_offer
+    })
+
+    await z.wait([
+        {
+            source: 'sip_endpoint',
+            endpoint_id: bob,
+            req: m.collect('req'),
+            event: 'in_dialog_request',
+            dialog_id: bob_call_id
+        },
+    ], 1000)
+ 
+    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
+        content: sdp_answer,
+    })
+
+    await z.wait([
+        {   
+            source: 'sip_endpoint',
+            endpoint_id: ada,
+            event: 'response',
+            res: m.collect('res'),
+            msg: sip_msg({
+                $rm: 'INVITE',
                 $rs: '200',
                 $rr: 'OK',
                 $fU: 'ada',
@@ -135,8 +193,73 @@ async function test() {
             endpoint_id: bob,                                                                                  
             event: 'in_dialog_request',
             dialog_id: bob_call_id,
+            msg: sip_msg({
+                $rm: 'ACK',
+            })
         },
     ], 1000)
+
+
+    // now do a RE-INVITE from bob's side
+
+    // clear stored req and res as we will need to collect them again
+    z.store.req = null
+    z.store.res = null
+
+    dialog.send_request(bob_call_id, {
+        method: 'INVITE',
+        content: sdp_offer
+    })
+
+    await z.wait([
+        {
+            source: 'sip_endpoint',
+            endpoint_id: ada,
+            req: m.collect('req'),
+            event: 'in_dialog_request',
+            dialog_id: ada_call_id
+        },
+    ], 1000)
+ 
+    dialog.send_reply(ada_call_id, z.store.req, 200, 'OK', {
+        content: sdp_answer,
+    })
+
+    await z.wait([
+        {   
+            source: 'sip_endpoint',
+            endpoint_id: bob,
+            event: 'response',
+            res: m.collect('res'),
+            msg: sip_msg({
+                $rm: 'INVITE',
+                $rs: '200',
+                $rr: 'OK',
+                $fU: 'bob',
+                $tU: 'ada',
+            }),
+            dialog_id: bob_call_id,
+        },
+    ], 1000)
+
+    dialog.send_request(bob_call_id, {
+        method: 'ACK',
+    })
+
+    await z.wait([
+        {
+            source: 'sip_endpoint',                                                                          
+            endpoint_id: ada,                                                                                  
+            event: 'in_dialog_request',
+            dialog_id: ada_call_id,
+            msg: sip_msg({
+                $rm: 'ACK',
+            })
+        },
+    ], 1000)
+
+
+    // Now disconnect from ada's side
 
     dialog.send_request(ada_call_id, {
         method: 'BYE',
@@ -170,7 +293,7 @@ async function test() {
             event: 'response',
             res: m.collect('res'),
             msg: sip_msg({
-                // $rm: 'BYE', // not working. See https://github.com/MayamaTakeshi/sip-parsing/issues/8
+                $rm: 'BYE',
                 $rs: '200',
                 $rr: 'OK',
                 $fU: 'ada',
