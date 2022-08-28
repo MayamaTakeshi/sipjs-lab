@@ -14,7 +14,7 @@
   "dependencies": {
     "deepmerge": "^4.2.2",
     "sip": "github:kirm/sip.js",
-    "sip-matching": "^1.3.26"
+    "sip-matching": "^1.3.28"
   },
   "devDependencies": {
     "jest": "^29.0.1",

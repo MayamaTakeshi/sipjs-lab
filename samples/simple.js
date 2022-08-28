@@ -6,7 +6,7 @@ const {endpoint, dialog} = require('../index.js')
 const Zester = require('zester')
 const m = require('data-matching')
 const util = require('util')
-const sip_msg = require('sip-matching')
+const sip_msg = require('../lib/sip_matching.js')
 
 const z = new Zester()
 
@@ -88,13 +88,12 @@ async function test() {
         {
             source: 'sip_endpoint',
             endpoint_id: bob,
-            req: m.collect('req'),
-            msg: sip_msg({
+            req: m.collect('req', sip_msg({
                 $rm: 'INVITE',
                 $rU: 'bob',
                 $fU: 'ada',
                 $fd: domain,
-            }),
+            })),
             event: 'dialog_offer',
             dialog_id: m.collect('bob_call_id'),
         },
@@ -114,17 +113,20 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: ada,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', {
                 $rm: 'INVITE',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
                 $fU: 'ada',
                 $fd: domain,
             }),
+            res: m.collect('res'),
             dialog_id: ada_call_id,
         },
     ], 1000)
+
+    console.log(JSON.stringify(z.store.res))
+    //process.exit(1)
 
     dialog.send_request(ada_call_id, {
         method: 'ACK',
@@ -136,7 +138,7 @@ async function test() {
             endpoint_id: bob,                                                                                  
             event: 'in_dialog_request',
             dialog_id: bob_call_id,
-            msg: sip_msg({
+            req: sip_msg({
                 $rm: 'ACK',
             })
         },
@@ -179,14 +181,13 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: ada,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', sip_msg({
                 $rm: 'INVITE',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
                 $fU: 'ada',
                 $fd: domain,
-            }),
+            })),
             dialog_id: ada_call_id,
         },
     ], 1000)
@@ -201,7 +202,7 @@ async function test() {
             endpoint_id: bob,                                                                                  
             event: 'in_dialog_request',
             dialog_id: bob_call_id,
-            msg: sip_msg({
+            req: sip_msg({
                 $rm: 'ACK',
             })
         },
@@ -244,14 +245,13 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: bob,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', sip_msg({
                 $rm: 'INVITE',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
                 $fU: 'bob',
                 $tU: 'ada',
-            }),
+            })),
             dialog_id: bob_call_id,
         },
     ], 1000)
@@ -266,9 +266,9 @@ async function test() {
             endpoint_id: ada,                                                                                  
             event: 'in_dialog_request',
             dialog_id: ada_call_id,
-            msg: sip_msg({
+            req: sip_msg({
                 $rm: 'ACK',
-            })
+            }),
         },
     ], 1000)
 
@@ -292,11 +292,10 @@ async function test() {
         {
             source: 'sip_endpoint',
             endpoint_id: bob,
-            req: m.collect('req'),
-            msg: sip_msg({
+            req: m.collect('req', sip_msg({
                 $rm: 'INFO',
                 $rb: "NTFY 123456 a.g.bell@bell-tel.com MGCP  1.0\r\nO: D/8, D/7, D/2, D/6, D/#, D/L",
-            }),
+            })),
             event: 'in_dialog_request',
             dialog_id: bob_call_id,
         },
@@ -309,12 +308,11 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: ada,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', sip_msg({
                 $rm: 'INFO',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
-            }),
+            })),
             dialog_id: ada_call_id,
         },
     ], 1000)
@@ -340,11 +338,10 @@ async function test() {
         {
             source: 'sip_endpoint',
             endpoint_id: ada,
-            req: m.collect('req'),
-            msg: sip_msg({
+            req: m.collect('req', sip_msg({
                 $rm: 'INFO',
                 $rb: "Cloudy, with a chance of rain",
-            }),
+            })),
             event: 'in_dialog_request',
             dialog_id: ada_call_id,
         },
@@ -357,12 +354,11 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: bob,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', sip_msg({
                 $rm: 'INFO',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
-            }),
+            })),
             dialog_id: bob_call_id,
         },
     ], 1000)
@@ -386,10 +382,9 @@ async function test() {
             endpoint_id: bob,
             event: 'in_dialog_request',
             dialog_id: bob_call_id,
-            req: m.collect('req'),
-            msg: sip_msg({
+            req: m.collect('req', sip_msg({
                 $rm: 'BYE',
-            })
+            })),
         },
     ], 1000)
 
@@ -403,14 +398,13 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: ada,
             event: 'response',
-            res: m.collect('res'),
-            msg: sip_msg({
+            res: m.collect('res', sip_msg({
                 $rm: 'BYE',
-                $rs: '200',
+                $rs: 200,
                 $rr: 'OK',
                 $fU: 'ada',
                 $fd: domain,
-            }),
+            })),
             dialog_id: ada_call_id,
         },
     ], 1000)

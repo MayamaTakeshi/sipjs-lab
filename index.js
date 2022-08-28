@@ -29,7 +29,6 @@ const endpoint_create = (opts) => {
                 source: 'sip_endpoint',
                 endpoint_id,
                 req,
-                msg: sip.stringify(req),
             }
 
             if(req.headers['call-id'] == null) {
@@ -148,7 +147,6 @@ const send_request = (endpoint, req, dialog) => {
                 endpoint_id: endpoint.id,
                 event: 'response',
                 res: res,
-                msg: sip.stringify(res),
             }
 
             evt.dialog_id = dialog.id
