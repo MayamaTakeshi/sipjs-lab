@@ -186,6 +186,9 @@ const dialog_create = (endpoint_id, params, template) => {
     var req 
     if(template != null) {
         req = sip.parse(template)
+        delete req.headers.via
+        delete req.headers.route
+        delete req.headers.contact
         req = deepmerge(req, params)
     } else {
         if(params.method == null) { throw("params missing method") }
@@ -207,9 +210,9 @@ const dialog_create = (endpoint_id, params, template) => {
         params.headers.from.params.tag = rstring()
     }
 
-    const seq = 1
+    var seq = 1
     if(req.headers.cseq != null) {
-        seq = req.headers.cseq
+        seq = req.headers.cseq.seq
     } else {
         req.headers.cseq = { method: req.method, seq }
     }
@@ -258,6 +261,12 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
 
     if(template != null) {
         var temp = sip.parse(template)
+        delete temp.headers.via
+        delete temp.headers['record-route']
+        delete temp.headers.contact
+        delete temp.headers.from
+        delete temp.headers.to
+        delete temp.headers['call-id']
         res = deepmerge(res, temp)
     }
 
@@ -278,6 +287,7 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
 
     res.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
 
+    console.log(JSON.stringify(res))
     endpoint.stack.send(res)
 }
 
