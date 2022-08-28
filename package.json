@@ -7,16 +7,17 @@
     "node": "v16.17.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --bail --verbose ./tests"
   },
   "author": "mayamatakeshi@gmail.com",
   "license": "ISC",
   "dependencies": {
     "deepmerge": "^4.2.2",
     "sip": "github:kirm/sip.js",
-    "sip-matching": "^1.3.20"
+    "sip-matching": "^1.3.26"
   },
   "devDependencies": {
+    "jest": "^29.0.1",
     "zester": "^4.1.5"
   }
 }

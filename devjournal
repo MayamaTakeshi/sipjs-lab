@@ -1,0 +1,4 @@
+------------------------------------------------------------------------
+2022/08/28 takeshi:
+    Note: sip.js parseUri doesn't support schema 'tel'
+
