@@ -61,26 +61,6 @@ m=audio 3456 RTP/AVP 0
 a=rtpmap:0 PCMU/8000`.replace(/\n/g, "\r\n")
 
 
-const sdp_answer = `v=0
-o=GANG 0 1 IN IP4 192.168.2.111
-s=-
-c=IN IP4 192.168.2.111
-t=0 0
-m=audio 20002 RTP/AVP 0 101
-a=rtpmap:0 PCMU/8000
-a=rtpmap:101 telephone-event/8000
-a=fmtp:101 0-15
-a=ptime:20
-a=sendrecv
-m=video 20004 RTP/AVP 105
-a=rtcp:37915
-a=rtpmap:105 H264/90000
-a=fmtp:105 profile-level-id=428016; packetization-mode=1
-a=rtcp-fb:* nack pli
-a=rtcp-fb:* ccm fir
-a=nortpproxy:yes`.replace(/\n/g, "\r\n")
-
-
 var logger = { 
     send: function(message, address) { debugger; util.debug("send\n" + util.inspect(message, false, null)); },
     recv: function(message, address) { debugger; util.debug("recv\n" + util.inspect(message, false, null)); },
