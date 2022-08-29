@@ -60,7 +60,7 @@ const endpoint_create = (opts) => {
             const call_id = req.headers['call-id']
             const id = [call_id, endpoint_id].join('@')
 
-            console.log(`dialog_map=${JSON.stringify(dialog_map)} id=${id} res=${dialog_map[id]}`)
+            //console.log(`dialog_map=${JSON.stringify(dialog_map)} id=${id} res=${dialog_map[id]}`)
             if(dialog_map[id] != null) {
                 evt.event = 'in_dialog_request'
                 evt.dialog_id = dialog_map[id]
@@ -135,8 +135,9 @@ const endpoint_destroy = (id) => {
     delete endpoints[id]
 }
 
-const gen_req = (params, template, initial_request, new_call_id) => {
+const gen_req = (params, template, initial_request) => {
     var req = {}
+    //console.log("template", template)
     if(template != null) {
         req = sip.parse(template)
         assert(req)
@@ -145,10 +146,12 @@ const gen_req = (params, template, initial_request, new_call_id) => {
         delete req.headers.contact
     }
 
+    //console.log("params", JSON.stringify(params))
     if(params != null) {
-        req = {...req, ...params}
+        req = deepmerge(req, params)
     }
 
+    //console.log(JSON.stringify(req))
     if(req.method == null) { throw("could not resolve method") }
     if(req.uri == null) { throw("could not resolve uri") }
     if(req.headers == null) { throw("could not resolve headers") }
@@ -176,19 +179,24 @@ const gen_req = (params, template, initial_request, new_call_id) => {
         req.headers.cseq = { method: req.method, seq }
     }
 
-    if(new_call_id) {
+    if(!req.headers['call-id']) {
         req.headers['call-id'] = uuid_v4()
     }
 
     return req
 }
 
-const endpoint_send_request = (endpoint, req, dialog) => {
+const endpoint_send_request = (endpoint, req, dialog, sign) => {
     req.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
+
+    if(sign) {
+        context = {}
+        digest.signRequest(context, req, sign.res, sign.credentials)
+    }
 
     //console.log(sip.stringify(req))
     //console.log(req)
-    console.log("endpoint_send_request sending:", JSON.stringify(req))
+    //console.log("endpoint_send_request sending:", JSON.stringify(req))
 
     endpoint.stack.send(req, function(res) {
         try {
@@ -229,7 +237,7 @@ const endpoint_send_request = (endpoint, req, dialog) => {
     })
 }
 
-const endpoint_send_non_dialog_request = (endpoint_id, params, template) => {
+const endpoint_send_non_dialog_request = (endpoint_id, params, template, sign) => {
     if(endpoints[endpoint_id] == null) {
         throw(`Invalid endpoint_id=${endpoint_id}`)
     }
@@ -237,16 +245,21 @@ const endpoint_send_non_dialog_request = (endpoint_id, params, template) => {
 
     var req = gen_req(params, template, true, true)
 
-    endpoint_send_request(endpoint, req)
+    endpoint_send_request(endpoint, req, null, sign)
 }
 
-const endpoint_send_reply = (endpoint, req, status, reason, params, template, dialog) => {
+const endpoint_send_reply = (endpoint_id, req, status, reason, params, template, dialog) => {
+    if(endpoints[endpoint_id] == null) {
+        throw(`Invalid endpoint_id=${endpoint_id}`)
+    }
+    const endpoint = endpoints[endpoint_id]
+
     if(status == null || reason == null) {
         throw(`status and reason are required`)
     }
 
     var res = sip.makeResponse(req, status, reason)
-    console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
+    //console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
 
     if(template != null) {
         var temp = sip.parse(template)
@@ -269,14 +282,24 @@ const endpoint_send_reply = (endpoint, req, status, reason, params, template, di
         }
     }
 
+    res.status = status
+    res.reason = reason
+
+    if(params && params.challenge) {
+        delete res.headers['www-authethicate']
+        delete res.headers['proxy-authenticate']
+        digest.challenge(params.challenge, res)
+    }
+
+
     if(dialog && dialog.direction == 'incoming') {
         dialog.from = res.headers.to
-        console.log(`dialog_send reply: dialog.from=${JSON.stringify(dialog.from)}`)
+        //console.log(`dialog_send reply: dialog.from=${JSON.stringify(dialog.from)}`)
     }
 
     res.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
 
-    console.log(JSON.stringify(res))
+    //console.log(JSON.stringify(res))
     endpoint.stack.send(res)
 }
 
@@ -287,7 +310,7 @@ const dialog_create = (endpoint_id, params, template) => {
     }
     const endpoint = endpoints[endpoint_id]
 
-    var req = gen_req(params, template, true, true)
+    var req = gen_req(params, template, true)
 
     assert(req.headers['call-id'])
     const id = [req.headers['call-id'], endpoint_id].join('@')
@@ -320,9 +343,7 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
     }
     const dialog = dialogs[dialog_id]
 
-    const endpoint = endpoints[dialog.endpoint_id]
-
-    endpoint_send_reply(endpoint, req, status, reason, params, template, dialog)
+    endpoint_send_reply(dialog.endpoint_id, req, status, reason, params, template, dialog)
 }
 
 const dialog_send_request = (dialog_id, params, template) => {
@@ -370,7 +391,7 @@ const dialog_send_request = (dialog_id, params, template) => {
 
     req.headers.cseq = { method: params.method, seq: dialog.seq }
 
-    console.log("dialog_send_request:", JSON.stringify(dialog))
+    //console.log("dialog_send_request:", JSON.stringify(dialog))
     req.headers.route = dialog.route
 
     endpoint_send_request(endpoint, req, dialog)
