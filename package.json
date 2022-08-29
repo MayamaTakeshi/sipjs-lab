@@ -1,6 +1,6 @@
 {
   "name": "sipjs-lab",
-  "version": "1.3.2",
+  "version": "1.3.4",
   "description": "A simple library to permit to write functional SIP tests\"",
   "main": "index.js",
   "engines": {
