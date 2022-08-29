@@ -3,6 +3,8 @@ const digest = require('sip/digest')
 const util = require('util')
 const uuid_v4 = require('uuid').v4
 
+const assert = require('assert')
+
 const events = require('events')
 const eventEmitter = new events.EventEmitter()
 
@@ -133,12 +135,60 @@ const endpoint_destroy = (id) => {
     delete endpoints[id]
 }
 
-const send_request = (endpoint, req, dialog) => {
+const gen_req = (params, template, initial_request, new_call_id) => {
+    var req = {}
+    if(template != null) {
+        req = sip.parse(template)
+        assert(req)
+        delete req.headers.via
+        delete req.headers.route
+        delete req.headers.contact
+    }
+
+    if(params != null) {
+        req = {...req, ...params}
+    }
+
+    if(req.method == null) { throw("could not resolve method") }
+    if(req.uri == null) { throw("could not resolve uri") }
+    if(req.headers == null) { throw("could not resolve headers") }
+    if(req.headers.from == null) { throw("could not resolve headers['from']") }
+    if(req.headers.to == null) { throw("could not resolve headers['to']") }
+
+    if(initial_request) {
+        if(req.headers.to.params) {
+            delete req.headers.to.params.tag
+        }
+    } else {
+        if(req.headers.from.params.tag == null) {
+            req.headers.from.params.tag = rstring()
+        }
+    }
+
+    if(req.headers.from.params == null) {
+        req.headers.from.params = {}
+    }
+
+    var seq = 1
+    if(req.headers.cseq != null) {
+        seq = req.headers.cseq.seq
+    } else {
+        req.headers.cseq = { method: req.method, seq }
+    }
+
+    if(new_call_id) {
+        req.headers['call-id'] = uuid_v4()
+    }
+
+    return req
+}
+
+const endpoint_send_request = (endpoint, req, dialog) => {
     req.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
 
     //console.log(sip.stringify(req))
     //console.log(req)
-    console.log("send_request sending:", JSON.stringify(req))
+    console.log("endpoint_send_request sending:", JSON.stringify(req))
 
     endpoint.stack.send(req, function(res) {
         try {
@@ -149,17 +199,19 @@ const send_request = (endpoint, req, dialog) => {
                 res: res,
             }
 
-            evt.dialog_id = dialog.id
+            if(dialog) {
+                evt.dialog_id = dialog.id
 
-            dialog.contact = res.headers.contact ? res.headers.contact[0] : null
+                dialog.contact = res.headers.contact ? res.headers.contact[0] : null
 
-            if(res.headers['record-route'] != null) {
-                dialog.route = res.headers['record-route']
-            }
+                if(res.headers['record-route'] != null) {
+                    dialog.route = res.headers['record-route']
+                }
 
-            if(dialog.direction == 'outgoing') {
-                dialog.from = res.headers.from
-                dialog.to = res.headers.to
+                if(dialog.direction == 'outgoing') {
+                    dialog.from = res.headers.from
+                    dialog.to = res.headers.to
+                }
             }
 
             eventEmitter.emit("event", evt)
@@ -177,84 +229,21 @@ const send_request = (endpoint, req, dialog) => {
     })
 }
 
-const dialog_create = (endpoint_id, params, template) => {
+const endpoint_send_non_dialog_request = (endpoint_id, params, template) => {
     if(endpoints[endpoint_id] == null) {
         throw(`Invalid endpoint_id=${endpoint_id}`)
     }
     const endpoint = endpoints[endpoint_id]
 
-    var req 
-    if(template != null) {
-        req = sip.parse(template)
-        delete req.headers.via
-        delete req.headers.route
-        delete req.headers.contact
-        req = deepmerge(req, params)
-    } else {
-        if(params.method == null) { throw("params missing method") }
-        if(params.uri == null) { throw("params missing uri") }
-        if(params.headers == null) { throw("params missing headers") }
-        if(params.headers.from == null) { throw("params missing headers['from']") }
-        if(params.headers.to == null) { throw("params missing headers['to']") }
+    var req = gen_req(params, template, true, true)
 
-        if(params.headers.to != null && params.headers.to.params != null && params.headers.params.tag != null) { throw("params should not contain headers['to'] with tag") }
-
-        req = {...params}
-    }
-
-    if(params.headers.from.params == null) {
-        params.headers.from.params = {}
-    }
-
-    if(params.headers.from.params.tag == null) {
-        params.headers.from.params.tag = rstring()
-    }
-
-    var seq = 1
-    if(req.headers.cseq != null) {
-        seq = req.headers.cseq.seq
-    } else {
-        req.headers.cseq = { method: req.method, seq }
-    }
-
-    const new_dialog_id = next_dialog_id++
-
-    const call_id = uuid_v4()
-    req.headers['call-id'] = call_id
-
-    const id = [call_id, endpoint_id].join('@')
-
-    const dialog = {
-        id: new_dialog_id,
-        endpoint_id,
-        offer: req,
-        direction: 'outgoing',
-        state: 'offering',
-        seq,
-        from: params.headers.from,
-        to: params.headers.to,
-    }
-
-    dialogs[new_dialog_id] = dialog
-
-    dialog_map[id] = new_dialog_id
-
-    send_request(endpoint, req, dialog)
-
-    return new_dialog_id
+    endpoint_send_request(endpoint, req)
 }
 
-const dialog_send_reply = (dialog_id, req, status, reason, params, template) => {
-    if(dialogs[dialog_id] == null) {
-        throw(`Invalid dialog_id=${dialog_id}`)
-    }
-    const dialog = dialogs[dialog_id]
-
+const endpoint_send_reply = (endpoint, req, status, reason, params, template, dialog) => {
     if(status == null || reason == null) {
         throw(`status and reason are required`)
     }
-
-    const endpoint = endpoints[dialog.endpoint_id]
 
     var res = sip.makeResponse(req, status, reason)
     console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
@@ -280,7 +269,7 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
         }
     }
 
-    if(dialog.direction == 'incoming') {
+    if(dialog && dialog.direction == 'incoming') {
         dialog.from = res.headers.to
         console.log(`dialog_send reply: dialog.from=${JSON.stringify(dialog.from)}`)
     }
@@ -289,6 +278,51 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
 
     console.log(JSON.stringify(res))
     endpoint.stack.send(res)
+}
+
+
+const dialog_create = (endpoint_id, params, template) => {
+    if(endpoints[endpoint_id] == null) {
+        throw(`Invalid endpoint_id=${endpoint_id}`)
+    }
+    const endpoint = endpoints[endpoint_id]
+
+    var req = gen_req(params, template, true, true)
+
+    assert(req.headers['call-id'])
+    const id = [req.headers['call-id'], endpoint_id].join('@')
+
+    const new_dialog_id = next_dialog_id++
+
+    const dialog = {
+        id: new_dialog_id,
+        endpoint_id,
+        offer: req,
+        direction: 'outgoing',
+        state: 'offering',
+        seq: req.headers.cseq.seq,
+        from: req.headers.from,
+        to: req.headers.to,
+    }
+
+    dialogs[new_dialog_id] = dialog
+
+    dialog_map[id] = new_dialog_id
+
+    endpoint_send_request(endpoint, req, dialog)
+
+    return new_dialog_id
+}
+
+const dialog_send_reply = (dialog_id, req, status, reason, params, template) => {
+    if(dialogs[dialog_id] == null) {
+        throw(`Invalid dialog_id=${dialog_id}`)
+    }
+    const dialog = dialogs[dialog_id]
+
+    const endpoint = endpoints[dialog.endpoint_id]
+
+    endpoint_send_reply(endpoint, req, status, reason, params, template, dialog)
 }
 
 const dialog_send_request = (dialog_id, params, template) => {
@@ -339,12 +373,14 @@ const dialog_send_request = (dialog_id, params, template) => {
     console.log("dialog_send_request:", JSON.stringify(dialog))
     req.headers.route = dialog.route
 
-    send_request(endpoint, req, dialog)
+    endpoint_send_request(endpoint, req, dialog)
 }
 
 module.exports = {
     endpoint: {
         create: endpoint_create,
+        send_non_dialog_request: endpoint_send_non_dialog_request,
+        send_reply: endpoint_send_reply,
         destroy: endpoint_destroy,
     }, 
 
