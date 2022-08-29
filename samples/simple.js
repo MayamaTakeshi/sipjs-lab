@@ -1,12 +1,11 @@
 /* this test creates two sip endpoints, makes a call between them, reinvites from both sides, sends INFO from both sides and terminates the call */
 
 const sipjs = require('../index.js')
-const {endpoint, dialog} = require('../index.js')
+const {endpoint, dialog, sip_msg} = require('../index.js')
 
 const Zester = require('zester')
 const m = require('data-matching')
 const util = require('util')
-const sip_msg = require('../lib/sip_matching.js')
 
 const z = new Zester()
 

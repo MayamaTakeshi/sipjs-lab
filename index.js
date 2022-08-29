@@ -10,6 +10,9 @@ const eventEmitter = new events.EventEmitter()
 
 const deepmerge = require('deepmerge')
 
+const sip_parsing = require('./lib/sip_parsing.js')
+const sip_matching = require('./lib/sip_matching.js')
+
 function rstring() { return Math.floor(Math.random()*1e6).toString() }
 
 const endpoints = {}
@@ -412,4 +415,7 @@ module.exports = {
     },
 
     event_source: eventEmitter,
+
+    sip_parsing,
+    sip_msg: sip_matching,
 }
