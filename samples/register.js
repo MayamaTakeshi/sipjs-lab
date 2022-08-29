@@ -83,9 +83,9 @@ async function test() {
     endpoint.send_reply(
         registrar,
         z.store.req,
-        407,
-        'Proxy Authentication Required',
         {
+            status: 407,
+            reason: 'Proxy Authentication Required',
             headers: {
                 expires: '160',
             },
@@ -146,9 +146,9 @@ async function test() {
     endpoint.send_reply(
         registrar,
         z.store.req,
-        200,
-        'OK',
         {
+            status: 200,
+            reason: 'OK',
             headers: {
                 expires: '160',
             },

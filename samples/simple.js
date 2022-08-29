@@ -100,12 +100,18 @@ async function test() {
 
     bob_call_id = z.store['bob_call_id']
 
-    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
-        headers: {
-            'content-type': 'application/sdp',
-        },
-        content: sdp_answer,
-    })
+    dialog.send_reply(
+        bob_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+            headers: {
+                'content-type': 'application/sdp',
+            },
+            content: sdp_answer,
+        }
+    )
 
     await z.wait([
         {   
@@ -168,12 +174,18 @@ async function test() {
         },
     ], 1000)
  
-    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
-        headers: {
-            'content-type': 'application/sdp',
-        },
-        content: sdp_answer,
-    })
+    dialog.send_reply(
+        bob_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+            headers: {
+                'content-type': 'application/sdp',
+            },
+            content: sdp_answer,
+        }
+    )
 
     await z.wait([
         {   
@@ -232,12 +244,18 @@ async function test() {
         },
     ], 1000)
  
-    dialog.send_reply(ada_call_id, z.store.req, 200, 'OK', {
-        headers: {
-            'content-type': 'application/sdp',
-        },
-        content: sdp_answer,
-    })
+    dialog.send_reply(
+        ada_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+            headers: {
+                'content-type': 'application/sdp',
+            },
+            content: sdp_answer,
+        }
+    )
 
     await z.wait([
         {   
@@ -300,7 +318,14 @@ async function test() {
         },
     ], 1000)
  
-    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK')
+    dialog.send_reply(
+        bob_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+        }
+    )
 
     await z.wait([
         {   
@@ -346,7 +371,14 @@ async function test() {
         },
     ], 1000)
 
-    dialog.send_reply(ada_call_id, z.store.req, 200, 'OK')
+    dialog.send_reply(
+        ada_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+        }
+    )
 
     await z.wait([
         {   
@@ -387,10 +419,14 @@ async function test() {
         },
     ], 1000)
 
-    dialog.send_reply(bob_call_id, z.store.req, 200, 'OK', {
-        headers: {
-        },
-    })
+    dialog.send_reply(
+        bob_call_id,
+        z.store.req,
+        {
+            status: 200,
+            reason: 'OK',
+        }
+    )
 
     await z.wait([
         {   
@@ -409,6 +445,9 @@ async function test() {
     ], 1000)
 
     await z.sleep(100) // wait for any unexpected events
+
+    dialog.destroy(ada_call_id)
+    dialog.destroy(bob_call_id)
 
     sipjs.endpoint.destroy(ada)
     sipjs.endpoint.destroy(bob)

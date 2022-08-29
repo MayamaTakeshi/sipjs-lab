@@ -263,17 +263,17 @@ const endpoint_send_non_dialog_request = (endpoint_id, params, template, sign) =
     endpoint_send_request(endpoint, req, null, sign)
 }
 
-const endpoint_send_reply = (endpoint_id, req, status, reason, params, template, dialog) => {
+const endpoint_send_reply = (endpoint_id, req, params, template, dialog) => {
     if(endpoints[endpoint_id] == null) {
         throw(`Invalid endpoint_id=${endpoint_id}`)
     }
     const endpoint = endpoints[endpoint_id]
 
-    if(status == null || reason == null) {
-        throw(`status and reason are required`)
+    if(params == null || params.status == null || params.reason == null) {
+        throw(`params, params.status and params.reason are required`)
     }
 
-    var res = sip.makeResponse(req, status, reason)
+    var res = sip.makeResponse(req, params.status, params.reason)
     console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
 
     if(template != null) {
@@ -287,18 +287,13 @@ const endpoint_send_reply = (endpoint_id, req, status, reason, params, template,
         res = deepmerge(res, temp)
     }
 
-    if(params != null) {
-        res = deepmerge(res, params)
-    }
+    res = deepmerge(res, params)
 
-    if(status != 100) {
+    if(params.status != 100) {
         if(!res.headers.to.params.tag) {
             res.headers.to.params.tag = rstring()
         }
     }
-
-    res.status = status
-    res.reason = reason
 
     res.headers['record-route'] = req.headers['record-route']
 
@@ -360,13 +355,13 @@ const dialog_create = (endpoint_id, params, template) => {
     return new_dialog_id
 }
 
-const dialog_send_reply = (dialog_id, req, status, reason, params, template) => {
+const dialog_send_reply = (dialog_id, req, params, template) => {
     if(dialogs[dialog_id] == null) {
         throw(`Invalid dialog_id=${dialog_id}`)
     }
     const dialog = dialogs[dialog_id]
 
-    endpoint_send_reply(dialog.endpoint_id, req, status, reason, params, template, dialog)
+    endpoint_send_reply(dialog.endpoint_id, req, params, template, dialog)
 }
 
 const dialog_send_request = (dialog_id, params, template, sign) => {
@@ -438,6 +433,20 @@ const dialog_send_request = (dialog_id, params, template, sign) => {
     endpoint_send_request(endpoint, req, dialog, sign)
 }
 
+const dialog_destroy = (dialog_id) => {
+    if(dialogs[dialog_id] == null) {
+        throw(`Invalid dialog_id=${dialog_id}`)
+    }
+    const dialog = dialogs[dialog_id]
+
+    const call_id = dialog.offer.headers['call-id']
+
+    const id = [call_id, dialog.endpoint_id].join('@')
+
+    delete dialogs[dialog_id]
+    delete dialog_map[id]
+}
+
 module.exports = {
     endpoint: {
         create: endpoint_create,
@@ -450,6 +459,7 @@ module.exports = {
         create: dialog_create,
         send_reply: dialog_send_reply,
         send_request: dialog_send_request,
+        destroy: dialog_destroy,
     },
 
     event_source: eventEmitter,
