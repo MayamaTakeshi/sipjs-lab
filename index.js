@@ -139,6 +139,7 @@ const endpoint_destroy = (id) => {
 }
 
 const gen_req = (params, template, initial_request) => {
+    console.log(`gen_req params=${JSON.stringify(params)}`)
     var req = {}
     //console.log("template", template)
     if(template != null) {
@@ -186,11 +187,14 @@ const gen_req = (params, template, initial_request) => {
         req.headers['call-id'] = uuid_v4()
     }
 
+    console.log(`gen_req req=${JSON.stringify(req)}`)
     return req
 }
 
 const endpoint_send_request = (endpoint, req, dialog, sign) => {
     req.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
+
+    delete req.headers.via
 
     if(sign) {
         context = {}
@@ -199,7 +203,7 @@ const endpoint_send_request = (endpoint, req, dialog, sign) => {
 
     //console.log(sip.stringify(req))
     //console.log(req)
-    //console.log("endpoint_send_request sending:", JSON.stringify(req))
+    console.log("endpoint_send_request sending:", JSON.stringify(req))
 
     endpoint.stack.send(req, function(res) {
         try {
@@ -222,6 +226,12 @@ const endpoint_send_request = (endpoint, req, dialog, sign) => {
                 if(dialog.direction == 'outgoing') {
                     dialog.from = res.headers.from
                     dialog.to = res.headers.to
+                }
+
+                if(res.status >= 200 && res.status < 300) {
+                    if(res.headers.cseq.method == 'INVITE' && dialog.state == 'offering') {
+                        dialog.state = 'answered'
+                    }
                 }
             }
 
@@ -262,7 +272,7 @@ const endpoint_send_reply = (endpoint_id, req, status, reason, params, template,
     }
 
     var res = sip.makeResponse(req, status, reason)
-    //console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
+    console.log(`sip.makeResponse res=${JSON.stringify(res)}`)
 
     if(template != null) {
         var temp = sip.parse(template)
@@ -288,6 +298,8 @@ const endpoint_send_reply = (endpoint_id, req, status, reason, params, template,
     res.status = status
     res.reason = reason
 
+    res.headers['record-route'] = req.headers['record-route']
+
     if(params && params.challenge) {
         delete res.headers['www-authethicate']
         delete res.headers['proxy-authenticate']
@@ -298,6 +310,12 @@ const endpoint_send_reply = (endpoint_id, req, status, reason, params, template,
     if(dialog && dialog.direction == 'incoming') {
         dialog.from = res.headers.to
         //console.log(`dialog_send reply: dialog.from=${JSON.stringify(dialog.from)}`)
+    }
+
+    if(res.status >= 200 && res.status < 300) {
+        if(res.headers.cseq.method == 'INVITE' && dialog.state == 'offering') {
+            dialog.state = 'answered'
+        }
     }
 
     res.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
@@ -349,7 +367,7 @@ const dialog_send_reply = (dialog_id, req, status, reason, params, template) => 
     endpoint_send_reply(dialog.endpoint_id, req, status, reason, params, template, dialog)
 }
 
-const dialog_send_request = (dialog_id, params, template) => {
+const dialog_send_request = (dialog_id, params, template, sign) => {
     if(dialogs[dialog_id] == null) {
         throw(`Invalid dialog_id=${dialog_id}`)
     }
@@ -380,6 +398,10 @@ const dialog_send_request = (dialog_id, params, template) => {
 
     req.headers = deepmerge(req.headers, headers)
 
+    if(dialog.state == 'offering') {
+        delete req.headers.to.params.tag
+    }
+
     if(req.method == 'CANCEL') {
         if(dialog.direction == 'incoming') {
             throw(`Cannot send CANCEL to an incoming call`)
@@ -389,7 +411,17 @@ const dialog_send_request = (dialog_id, params, template) => {
         req.uri = dialog.contact.uri
     } else {
         dialog.seq++
-        req.uri = dialog.contact.uri
+        console.log("p1", JSON.stringify(req))
+        console.log(JSON.stringify(dialog))
+        if(dialog.state == 'answered') {
+            req.uri = dialog.contact.uri
+        } else if(req.method == 'INVITE') {
+            if(dialog.state == 'offering') {
+                req.uri = dialog.offer.uri
+            } else {
+                req.uri = dialog.contact.uri
+            }
+        }
     }
 
     req.headers.cseq = { method: params.method, seq: dialog.seq }
@@ -397,7 +429,7 @@ const dialog_send_request = (dialog_id, params, template) => {
     //console.log("dialog_send_request:", JSON.stringify(dialog))
     req.headers.route = dialog.route
 
-    endpoint_send_request(endpoint, req, dialog)
+    endpoint_send_request(endpoint, req, dialog, sign)
 }
 
 module.exports = {
