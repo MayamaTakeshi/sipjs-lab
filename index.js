@@ -217,7 +217,9 @@ const endpoint_send_request = (endpoint, req, dialog, sign) => {
             if(dialog) {
                 evt.dialog_id = dialog.id
 
-                dialog.contact = res.headers.contact ? res.headers.contact[0] : null
+                if(res.headers.contact && res.headers.contact[0]) {
+                    dialog.contact = res.headers.contact[0]
+                }
 
                 if(res.headers['record-route'] != null) {
                     dialog.route = res.headers['record-route']
@@ -408,11 +410,15 @@ const dialog_send_request = (dialog_id, params, template, sign) => {
         }
         req.uri = dialog.offer.uri
     } else if(req.method == 'ACK') {
-        req.uri = dialog.contact.uri
+        if(dialog.state == 'offering') {
+            req.uri = dialog.offer.uri
+        } else {
+            req.uri = dialog.contact.uri
+        }
     } else {
         dialog.seq++
         console.log("p1", JSON.stringify(req))
-        console.log(JSON.stringify(dialog))
+        console.log("dialog", JSON.stringify(dialog))
         if(dialog.state == 'answered') {
             req.uri = dialog.contact.uri
         } else if(req.method == 'INVITE') {
