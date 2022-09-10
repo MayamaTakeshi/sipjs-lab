@@ -36,7 +36,7 @@ To control dialogs:
     },
 ```
 
-The tests are written using [zester](https://github.com/MayamaTakeshi/zester)
+The tests are written using [@mayama/zeq](https://github.com/MayamaTakeshi/zeq)
 
 By cloning this repo, try:
 

@@ -4,13 +4,13 @@ const sipjs = require('../index.js')
 
 const {endpoint, dialog, sip_msg} = require('../index.js')
 
-const Zester = require('zester')
+const Zeq = require('@mayama/zeq')
 const m = require('data-matching')
 const util = require('util')
 
 const uuid_v4 = require('uuid').v4
 
-const z = new Zester()
+const z = new Zeq()
 
 z.trap_events(sipjs.event_source, 'event', (evt) => {
     var e = evt.args[0]
