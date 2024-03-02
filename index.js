@@ -163,17 +163,15 @@ const gen_req = (params, template, initial_request) => {
     if(req.headers.to == null) { throw("could not resolve headers['to']") }
 
     if(initial_request) {
-        if(req.headers.to.params) {
+        if(req.headers.to && req.headers.to.params) {
             delete req.headers.to.params.tag
         }
-    } else {
-        if(req.headers.from.params.tag == null) {
+        if(!req.headers.from.params) {
+	    req.headers.from.params = {}
+	}
+        if(!req.headers.from.params.tag) {
             req.headers.from.params.tag = rstring()
         }
-    }
-
-    if(req.headers.from.params == null) {
-        req.headers.from.params = {}
     }
 
     var seq = 1
@@ -330,7 +328,6 @@ const dialog_create = (endpoint_id, params, template) => {
 
     var req = gen_req(params, template, true)
 
-    assert(req.headers['call-id'])
     const id = [req.headers['call-id'], endpoint_id].join('@')
 
     const new_dialog_id = next_dialog_id++
