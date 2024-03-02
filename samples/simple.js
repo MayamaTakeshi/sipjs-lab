@@ -118,14 +118,13 @@ async function test() {
             source: 'sip_endpoint',
             endpoint_id: ada,
             event: 'response',
-            res: m.collect('res', {
+            res: m.collect('res', sip_msg({
                 $rm: 'INVITE',
                 $rs: 200,
                 $rr: 'OK',
                 $fU: 'ada',
                 $fd: domain,
-            }),
-            res: m.collect('res'),
+            })),
             dialog_id: ada_call_id,
         },
     ], 1000)
