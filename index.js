@@ -282,6 +282,7 @@ const endpoint_send_reply = (endpoint_id, req, params, template, dialog) => {
         delete temp.headers.from
         delete temp.headers.to
         delete temp.headers['call-id']
+        delete temp.headers['cseq']
         res = deepmerge(res, temp)
     }
 
@@ -315,7 +316,7 @@ const endpoint_send_reply = (endpoint_id, req, params, template, dialog) => {
 
     res.headers.contact = [ { uri: `sip:sipjs@${endpoint.opts.address}:${endpoint.opts.port}` } ]
 
-    //console.log(JSON.stringify(res))
+    //console.log("sendingResponse", JSON.stringify(res))
     endpoint.stack.send(res)
 }
 
